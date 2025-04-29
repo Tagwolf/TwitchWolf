@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StreamPilot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0f1117;
+      --sidebar-bg: #1a1d2e;
+      --accent: #72f0a8;
+      --text-light: #e6e6e6;
+      --text-muted: #aaa;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      background-color: var(--bg-dark);
+      color: var(--text-light);
+      height: 100vh;
+    }
+
+    .sidebar {
+      width: 220px;
+      background-color: var(--sidebar-bg);
+      padding: 2rem 1rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar h2 {
+      color: var(--accent);
+      margin-bottom: 2rem;
+      font-size: 1.4rem;
+    }
+
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+      transition: 0.2s;
+    }
+
+    .nav-link:hover,
+    .nav-link.active {
+      background-color: var(--accent);
+      color: #000;
+      font-weight: 600;
+    }
+
+    .main {
+      flex: 1;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+
+    textarea, input {
+      width: 100%;
+      padding: 0.6rem;
+      margin-bottom: 0.8rem;
+      background-color: #11131a;
+      color: var(--text-light);
+      border: 1px solid #333;
+      border-radius: 4px;
+    }
+
+    .btn {
+      background-color: var(--accent);
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      margin-right: 0.5rem;
+    }
+
+    .note-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .note-text {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-light);
+    }
+
+    .note-actions button {
+      margin-left: 0.3rem;
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <h2>StreamPilot</h2>
+    <a class="nav-link active" href="#notizen">📝 Notizen</a>
+    <a class="nav-link" href="#clips">🎬 Clips</a>
+    <a class="nav-link" href="#stimmung">😄 Stimmung</a>
+    <a class="nav-link" href="#ideen">🎯 Ideen</a>
+  </aside>
+
+  <main class="main">
+    <section id="notizen">
+      <h1>📝 Notizen</h1>
+      <textarea id="noteInput" placeholder="Neue Notiz eingeben..."></textarea>
+      <button class="btn" onclick="addNote()">Speichern</button>
+      <ul id="noteList"></ul>
+    </section>
+
+    <section id="clips" style="display: none;">
+      <h1>🎬 Clips</h1>
+      <button class="btn" onclick="suggestClip()">📌 Clip speichern</button>
+      <div id="clipList"></div>
+    </section>
+
+    <section id="stimmung" style="display: none;">
+      <h1>😄 Stimmung analysieren</h1>
+      <textarea id="chatInput" placeholder="Chattext eingeben..."></textarea>
+      <button class="btn" onclick="analyzeMood()">Analysieren</button>
+      <div id="moodResult"></div>
+    </section>
+
+    <section id="ideen" style="display: none;">
+      <h1>🎯 Themenideen</h1>
+      <button class="btn" onclick="generateIdea()">Neue Idee</button>
+      <div id="ideaOutput"></div>
+    </section>
+  </main>
+
+  <script>
+    // Seitenumschaltung
+    const links = document.querySelectorAll('.nav-link');
+    const sections = document.querySelectorAll('main section');
+
+    links.forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        links.forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+
+        sections.forEach(sec => {
+          sec.style.display = sec.id === link.getAttribute('href').substring(1) ? 'block' : 'none';
+        });
+      });
+    });
+
+    // Notizen-System mit LocalStorage
+    let notes = JSON.parse(localStorage.getItem('notes')) || [];
+    function saveNotes() {
+      localStorage.setItem('notes', JSON.stringify(notes));
+    }
+    function renderNotes() {
+      const list = document.getElementById('noteList');
+      list.innerHTML = '';
+      notes.forEach((note, index) => {
+        const li = document.createElement('li');
+        li.className = 'note-item';
+        const input = document.createElement('input');
+        input.value = note;
+        input.className = 'note-text';
+        input.setAttribute('readonly', true);
+
+        const actions = document.createElement('div');
+        actions.className = 'note-actions';
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn';
+        editBtn.textContent = '✏️';
+        editBtn.onclick = () => {
+          if (input.hasAttribute('readonly')) {
+            input.removeAttribute('readonly');
+            input.focus();
+            editBtn.textContent = '💾';
+          } else {
+            notes[index] = input.value;
+            saveNotes();
+            input.setAttribute('readonly', true);
+            editBtn.textContent = '✏️';
+          }
+        };
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn';
+        deleteBtn.textContent = '🗑️';
+        deleteBtn.onclick = () => {
+          notes.splice(index, 1);
+          saveNotes();
+          renderNotes();
+        };
+
+        actions.appendChild(editBtn);
+        actions.appendChild(deleteBtn);
+        li.appendChild(input);
+        li.appendChild(actions);
+        list.appendChild(li);
+      });
+    }
+    function addNote() {
+      const input = document.getElementById('noteInput');
+      const value = input.value.trim();
+      if (value) {
+        notes.push(value);
+        saveNotes();
+        input.value = '';
+        renderNotes();
+      }
+    }
+
+    // Clips
+    let clipCounter = 1;
+    function suggestClip() {
+      const div = document.getElementById('clipList');
+      const entry = document.createElement('div');
+      const timestamp = new Date().toLocaleTimeString();
+      entry.textContent = `Clip ${clipCounter++} gespeichert bei ${timestamp}`;
+      div.appendChild(entry);
+    }
+
+    // Stimmung
+    function analyzeMood() {
+      const text = document.getElementById('chatInput').value.toLowerCase();
+      let mood = 'Neutral';
+      if (text.includes('lol') || text.includes('haha') || text.includes('nice') || text.includes('🔥')) mood = 'Positiv';
+      else if (text.includes('langweilig') || text.includes('meh') || text.includes('cringe')) mood = 'Negativ';
+      document.getElementById('moodResult').textContent = `Erkannte Stimmung: ${mood}`;
+    }
+
+    // Ideen
+    const ideas = [
+      "Was war dein peinlichstes Erlebnis?",
+      "Top 3 Games deiner Kindheit?",
+      "Fun-Fact über dich?",
+      "Was würdest du tun mit 1 Mio?",
+      "Chat: Entweder-oder-Fragen!"
+    ];
+    function generateIdea() {
+      const idea = ideas[Math.floor(Math.random() * ideas.length)];
+      document.getElementById('ideaOutput').textContent = idea;
+    }
+
+    // Initial Load
+    renderNotes();
+  </script>
+</body>
+</html>
